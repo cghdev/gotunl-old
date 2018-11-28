@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/howeyc/gopass"
@@ -30,7 +31,15 @@ type Gotunl struct {
 }
 
 func _getKey() string {
-	keyPath := "/Applications/Pritunl.app/Contents/Resources/auth"
+	keyPath := ""
+	switch oS := runtime.GOOS; oS {
+	case "darwin":
+		keyPath = "/Applications/Pritunl.app/Contents/Resources/auth"
+	case "windows":
+		keyPath = "c:\\ProgramData\\Pritunl\\auth"
+	case "linux":
+		keyPath = "/var/run/pritunl.auth"
+	}
 	if _, err := os.Stat(keyPath); !os.IsNotExist(err) {
 		key, err := ioutil.ReadFile(keyPath)
 		if err != nil {
@@ -42,8 +51,19 @@ func _getKey() string {
 }
 
 func _getProfilePath() string {
-	home := os.Getenv("HOME")
-	profPath := home + "/Library/Application Support/pritunl/profiles"
+	home := ""
+	profPath := ""
+	switch oS := runtime.GOOS; oS {
+	case "darwin":
+		home = os.Getenv("HOME")
+		profPath = home + "/Library/Application Support/pritunl/profiles"
+	case "windows":
+		home = os.Getenv("APPDATA")
+		profPath = home + "\\pritunl\\profiles"
+	case "linux":
+		home = os.Getenv("HOME")
+		profPath = home + "/pritunl/profiles"
+	}
 	if _, err := os.Stat(profPath); !os.IsNotExist(err) {
 		return profPath
 	}
@@ -122,6 +142,7 @@ func (g Gotunl) loadProfiles() {
 
 func (g Gotunl) GetProfile(id string) (string, string) {
 	auth := ""
+	key := ""
 	g.loadProfiles()
 	prof := g.Profiles[id]
 	ovpnFile := strings.Replace(prof.Path, ".conf", ".ovpn", 1)
@@ -138,16 +159,19 @@ func (g Gotunl) GetProfile(id string) (string, string) {
 	if auth != "" && strings.Contains(prof.Conf, "password_mode") && mode != "" {
 		auth = mode
 	}
-	command := "security find-generic-password -w -s pritunl -a " + id
-	out, err := exec.Command("bash", "-c", command).Output()
-	if err != nil {
-		log.Fatal(err)
+	if runtime.GOOS == "darwin" {
+		command := "security find-generic-password -w -s pritunl -a " + id
+		out, err := exec.Command("bash", "-c", command).Output()
+		if err != nil {
+			log.Fatal(err)
+		}
+		res, err := b64.StdEncoding.DecodeString(string(out))
+		if err != nil {
+			log.Fatal(err)
+		}
+		key = string(res)
 	}
-	res, err := b64.StdEncoding.DecodeString(string(out))
-	if err != nil {
-		log.Fatal(err)
-	}
-	vpn := string(ovpn) + "\n" + string(res)
+	vpn := string(ovpn) + "\n" + key
 	return vpn, auth
 
 }

@@ -62,7 +62,7 @@ func _getProfilePath() string {
 		profPath = home + "\\pritunl\\profiles"
 	case "linux":
 		home = os.Getenv("HOME")
-		profPath = home + "/pritunl/profiles"
+		profPath = home + "/.config/pritunl/profiles"
 	}
 	if _, err := os.Stat(profPath); !os.IsNotExist(err) {
 		return profPath
@@ -145,7 +145,7 @@ func (g Gotunl) GetProfile(id string) (string, string) {
 	key := ""
 	g.loadProfiles()
 	prof := g.Profiles[id]
-	ovpnFile := strings.Replace(prof.Path, ".conf", ".ovpn", 1)
+	ovpnFile := strings.Replace(prof.Path, id+".conf", id+".ovpn", 1)
 	ovpn, err := ioutil.ReadFile(ovpnFile)
 	if err != nil {
 		log.Fatal(err)

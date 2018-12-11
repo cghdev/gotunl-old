@@ -206,9 +206,9 @@ func (g Gotunl) ConnectProfile(id string, user string, password string) {
 			pass, _ := gopass.GetPasswdMasked()
 			password = string(pass)
 		}
-		data, _ = sjson.Set(data, "username", user)
-		data, _ = sjson.Set(data, "password", password)
 	}
+	data, _ = sjson.Set(data, "username", user)
+	data, _ = sjson.Set(data, "password", password)
 	data, _ = sjson.Set(data, "data", ovpn)
 	g.makeReq("POST", "profile", data)
 }

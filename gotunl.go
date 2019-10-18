@@ -2,10 +2,12 @@ package gotunl
 
 import (
 	"bytes"
+	"context"
 	b64 "encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -24,10 +26,11 @@ type profile struct {
 	Conf string
 }
 type Gotunl struct {
-	authKey  string
-	profPath string
-	service  string
-	Profiles map[string]profile
+	authKey    string
+	profPath   string
+	service    string
+	unixSocket string
+	Profiles   map[string]profile
 }
 
 func _getKey() string {
@@ -71,7 +74,13 @@ func _getProfilePath() string {
 }
 
 func New() *Gotunl {
-	g := Gotunl{_getKey(), _getProfilePath(), "http://localhost:9770/", map[string]profile{}}
+	service := ""
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		service = "http://unix/"
+	} else {
+		service = "http://localhost:9770/"
+	}
+	g := Gotunl{_getKey(), _getProfilePath(), service, "/var/run/pritunl.sock", map[string]profile{}}
 	g.loadProfiles()
 	return &g
 }
@@ -85,7 +94,16 @@ func (g Gotunl) makeReq(verb string, endpoint string, data string) string {
 	req.Header.Set("User-Agent", "pritunl")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Auth-Key", g.authKey)
-	client := &http.Client{}
+	client := http.Client{}
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		client = http.Client{
+			Transport: &http.Transport{
+				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+					return net.Dial("unix", g.unixSocket)
+				},
+			},
+		}
+	}
 	res, err := client.Do(req)
 	if err != nil {
 		log.Fatal(err)

@@ -95,6 +95,8 @@ func (g Gotunl) makeReq(verb string, endpoint string, data string) string {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Auth-Key", g.authKey)
 	client := http.Client{}
+	// pritunl now uses unix sockets for linux and MacOS.
+	// ref: https://gist.github.com/teknoraver/5ffacb8757330715bcbcc90e6d46ac74
 	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
 		client = http.Client{
 			Transport: &http.Transport{
